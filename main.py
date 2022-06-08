@@ -2,47 +2,50 @@ import time
 import requests
 from datetime import datetime
 
-response = requests.get('http://api.open-notify.org/iss-now.json')
+def is_iss_overhead(lat, lgt):
+    """
+    Check if ISS is close to a given location
+    """
+    response = requests.get('http://api.open-notify.org/iss-now.json')
+    response.raise_for_status()
+    data = response.json()
+    longitude = float(data['iss_position']['longitude'])
+    latitude = float(data['iss_position']['latitude'])
+    return abs(lat - latitude)<5 and abs(lgt - longitude)<5
 
-response.raise_for_status()
+def is_dark_outside(lat, lng):
+    """
+    Check if it is dark outside
+    """
+    parameters = {
+        'lat': lat, 
+        'lng': lng,
+        'formatted': 0,
+        }
 
-data = response.json()
-
-longitude = float(data['iss_position']['longitude'])
-latitude = float(data['iss_position']['latitude'])
-
-iss_position = (longitude, latitude)
-#print(iss_position)
-
-MY_LAT = -9.0125
-MY_LONG = 14.7335
-
-parameters = {
-    'lat': MY_LAT, 
-    'lng': MY_LONG,
-    'formatted': 0,
-    }
-
-response = requests.get('https://api.sunrise-sunset.org/json', params=parameters)
-response.raise_for_status()
-data = response.json()
-sunrise = int(data['results']['sunrise'].split('T')[1].split(':')[0])
-sunset = int(data['results']['sunset'].split('T')[1].split(':')[0])
+    response = requests.get('https://api.sunrise-sunset.org/json', params=parameters)
+    response.raise_for_status()
+    data = response.json()
+    sunrise = int(data['results']['sunrise'].split('T')[1].split(':')[0])
+    sunset = int(data['results']['sunset'].split('T')[1].split(':')[0])
+    time_now = datetime.now()
+    return time_now.hour not in range(sunrise, sunset+1)
 
 
+if __name__ == '__main__':
 
-time_now = datetime.now()
+    # Cartagena(Colombia) coordinates
+    MY_LAT = 10.397520
+    MY_LONG = -435.463243
 
-while True:
-    if time_now.hour not in range(sunrise, sunset+1): # if it's not light outside
-        if abs(MY_LAT - iss_position[1])<5:  # if ISS is within 5 degrees of my latitude
-            print("Look up now!!")
-            
+    while True:
+        if is_dark_outside(MY_LAT, MY_LONG): 
+            if is_iss_overhead(MY_LAT, MY_LONG): 
+                print(str(datetime.now())+' ISS is close to you! Look up now!!') 
+                print(str(datetime.now())+"*****SEND EMAIL*****")
+            else:
+                print(str(datetime.now())+" It's currently dark outside, but Iss is not in my area")
         else:
-            print("It's currently dark outside, but Iss is not in my area")
-            #break
-    else:
-        print("It's currently light")
-        #break
-    time.sleep(1)
+            print(str(datetime.now())+" It's currently light")
+        time.sleep(1)
      
